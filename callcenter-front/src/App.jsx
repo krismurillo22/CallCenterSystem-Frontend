@@ -3,11 +3,13 @@ import Button from "./components/Button";
 function App() {
   return (
     <>
-      <h1>Mi aplicación</h1>
+      <Button text="Guardar" color="green" />
+      <br /><br />
 
-      <Button text="Guardar" />
-      <Button text="Eliminar" />
-      <Button text="Cancelar" />
+      <Button text="Eliminar" color="red" />
+      <br /><br />
+
+      <Button text="Cancelar" color="gray" />
     </>
   );
 }

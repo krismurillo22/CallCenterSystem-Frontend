@@ -1,6 +1,17 @@
-function Button({ text, onClick, type = "button" }) {
+function Button({ text, color }) {
   return (
-    <button type={type} onClick={onClick}>
+    <button
+      style={{
+        backgroundColor: color,
+        color: "white",
+        border: "none",
+        padding: "12px 24px",
+        borderRadius: "8px",
+        fontSize: "16px",
+        fontWeight: "bold",
+        cursor: "pointer"
+      }}
+    >
       {text}
     </button>
   );
