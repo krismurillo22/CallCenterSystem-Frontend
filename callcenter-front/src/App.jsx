@@ -8,37 +8,22 @@ import Button from "./components/Button";
 
 function App() {
   return (
-    <>
-    <Title level={1}> Titulo principal </Title>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div>
+      <button onClick={() => setIsOpen(true)}>Abrir Modal</button>
 
-      <div className="ticks"></div>
-
-      <Button text="Eliminar" color="red" />
-      <br /><br />
-
-      <Button text="Cancelar" color="gray" />
-    </>
-  );
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Detalles de Llamada"
+      >
+        <p><strong>Agente:</strong> Juan Pérez</p>
+        <p><strong>Estado:</strong> En llamada</p>
+        <p><strong>Duración:</strong> 00:03:45</p>
+        <p><strong>Cliente:</strong> María López</p>
+        <button onClick={() => setIsOpen(false)}>Cerrar</button>
+      </Modal>
+    </div>
+  )
 }
 
-export default App;
+export default App
