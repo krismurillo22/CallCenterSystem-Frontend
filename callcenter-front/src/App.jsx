@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import Modal from './components/Modal'
+import reactLogo from './assets/react.svg'
+import viteLogo from './assets/vite.svg'
+import heroImg from './assets/hero.png'
+import Title from './components/Title'
+
+import Button from "./components/Button";
 
 function App() {
-  const [isOpen, setIsOpen] = useState(false)
-
   return (
     <div>
       <button onClick={() => setIsOpen(true)}>Abrir Modal</button>
