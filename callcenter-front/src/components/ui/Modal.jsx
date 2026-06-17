@@ -27,10 +27,10 @@ function Modal({ isOpen, onClose, title, children }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'var(--bg)',
+          background: 'var(--card)',
           border: '1px solid var(--border)',
           borderRadius: '10px',
-          boxShadow: 'var(--shadow)',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
           width: '100%',
           maxWidth: '480px',
           margin: '16px',
@@ -45,7 +45,7 @@ function Modal({ isOpen, onClose, title, children }) {
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-h)' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--foreground)' }}>
             {title}
           </h2>
           <button
@@ -56,7 +56,7 @@ function Modal({ isOpen, onClose, title, children }) {
               border: 'none',
               cursor: 'pointer',
               fontSize: '16px',
-              color: 'var(--text)',
+              color: 'var(--muted-foreground)',
               padding: '4px 8px',
               borderRadius: '4px',
             }}
@@ -64,7 +64,7 @@ function Modal({ isOpen, onClose, title, children }) {
             ✕
           </button>
         </div>
-        <div style={{ padding: '24px', color: 'var(--text)' }}>
+        <div style={{ padding: '24px', color: 'var(--foreground)' }}>
           {children}
         </div>
       </div>
