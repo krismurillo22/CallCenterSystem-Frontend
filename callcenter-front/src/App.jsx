@@ -10,7 +10,7 @@ import DashboardPage from "./components/pages/DashboardPage";
 // Páginas de los compañeros de equipo — PIEZAS DEL ROMPECABEZAS
 // ─────────────────────────────────────────────────────────────────────────
 // Cada quien descomenta su import aquí cuando termine su página:
-// import QueuePage from "./components/pages/QueuePage";
+import QueuePage from "./components/pages/QueuePage";
 // import EmployeesPage from "./components/pages/EmployeesPage";
 // import HistoryPage from "./components/pages/HistoryPage";
 //
@@ -18,7 +18,7 @@ import DashboardPage from "./components/pages/DashboardPage";
 // descomentar el bloque correspondiente. No hay que tocar nada más.
 
 // ── Modales globales (no implementados todavía) ─────────────────────────
-// import NewCallModal from "./components/calls/NewCallModal";
+ import NewCallModal from "./components/calls/NewCallModal";
 // import NewEmployeeModal from "./components/employees/NewEmployeeModal";
 // import EditEmployeeModal from "./components/employees/EditEmployeeModal";
 
@@ -233,9 +233,7 @@ export default function App() {
 
               {tab === "queue" && (
                 <>
-                  {/* TODO: cuando QueuePage esté lista, reemplaza <PlaceholderPage> por:
-                      <QueuePage queue={queue} calls={calls} employees={employees} onDispatch={handleDispatch} /> */}
-                  <PlaceholderPage label="Cola" />
+                   <QueuePage queue={queue} calls={calls} employees={employees} onDispatch={handleDispatch} />
                 </>
               )}
 
@@ -266,13 +264,11 @@ export default function App() {
         </main>
       </div>
 
-      {/* TODO: reemplazar por <NewCallModal onClose={...} onSubmit={handleNewCall} /> real */}
-      <Modal isOpen={showNewCall} onClose={() => setShowNewCall(false)} title="Nueva llamada">
-        <p className="text-sm text-muted-foreground">
-          Formulario pendiente: falta implementar NewCallModal. Cuando exista, debe llamar a
-          handleNewCall(&#123; caller_name, caller_phone, rank_required &#125;).
-        </p>
-      </Modal>
+      <NewCallModal
+        isOpen={showNewCall}
+        onClose={() => setShowNewCall(false)}
+        onSubmit={handleNewCall}
+      />
 
       {/* ── Modales globales restantes (descomentar cuando existan) ────────
       {showNewEmployee && (
