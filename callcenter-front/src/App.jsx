@@ -19,8 +19,8 @@ import EmployeesPage from "./components/pages/EmployeesPage";
 
 // ── Modales globales (no implementados todavía) ─────────────────────────
 import NewCallModal from "./components/calls/NewCallModal";
-// import NewEmployeeModal from "./components/employees/NewEmployeeModal";
-// import EditEmployeeModal from "./components/employees/EditEmployeeModal";
+import NewEmployeeModal from "./components/employees/NewEmployeeModal";
+import EditEmployeeModal from "./components/employees/EditEmployeeModal";
 
 import * as callsService from "./services/callsService";
 import * as employeesService from "./services/employeesService";
@@ -397,14 +397,22 @@ export default function App() {
         onSubmit={handleNewCall}
       />
 
-      {/* ── Modales globales restantes (descomentar cuando existan) ────────
-      {showNewEmployee && (
-        <NewEmployeeModal onClose={() => setShowNewEmployee(false)} onSubmit={handleNewEmployee} />
-      )}
-      {editingEmployee && (
-        <EditEmployeeModal employee={editingEmployee} onClose={() => setEditingEmployee(null)} onSave={handleEditEmployee} />
-      )}
-      ──────────────────────────────────────────────────────────────────── */}
+    {showNewEmployee && (
+      <NewEmployeeModal
+        isOpen={showNewEmployee}
+        onClose={() => setShowNewEmployee(false)}
+        onSubmit={handleNewEmployee}
+      />
+    )}
+
+    {editingEmployee && (
+      <EditEmployeeModal
+        employee={editingEmployee}
+        isOpen={!!editingEmployee}
+        onClose={() => setEditingEmployee(null)}
+        onSave={handleEditEmployee}
+      />
+    )}
     </div>
   );
 }
