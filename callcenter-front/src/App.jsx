@@ -12,7 +12,7 @@ import DashboardPage from "./components/pages/DashboardPage";
 // Cada quien descomenta su import aquí cuando termine su página:
 import QueuePage from "./components/pages/QueuePage";
 import EmployeesPage from "./components/pages/EmployeesPage";
-// import HistoryPage from "./components/pages/HistoryPage";
+import HistoryPage from "./components/pages/HistoryPage";
 //
 // Y luego busca los comentarios "TODO" más abajo en el <main> para
 // descomentar el bloque correspondiente. No hay que tocar nada más.
@@ -379,13 +379,7 @@ export default function App() {
                 </>
               )}
 
-              {tab === "history" && (
-                <>
-                  {/* TODO: cuando HistoryPage esté lista, reemplaza <PlaceholderPage> por:
-                      <HistoryPage calls={calls} /> */}
-                  <PlaceholderPage label="Historial" />
-                </>
-              )}
+              {tab === "history" && <HistoryPage calls={calls} />}
             </>
           )}
         </main>
