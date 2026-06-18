@@ -290,8 +290,7 @@ export default function App() {
 
     setEmployees((prev) => [...prev, newEmp]);
 
-    employeesService
-      .createEmployee({ name, rank })
+    employeesService.createEmployee({ name, rank, is_available: true, is_active: true })
       .catch((err) => console.error(err));
   };
 
