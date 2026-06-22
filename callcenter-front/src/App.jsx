@@ -248,39 +248,51 @@ export default function App() {
 
   // ── Handlers de agentes (descomentar cuando EmployeesPage exista) ──────
   const handleToggleAvailability = (employeeId) => {
+    // Calculamos el nuevo valor antes de setState para pasárselo explícitamente
+    // al service (el back espera { is_available: boolean }, no un "toggle").
+    const current = employees.find((e) => e.id === employeeId);
+    const newValue = current ? !current.is_available : true;
+
     setEmployees((prev) =>
       prev.map((e) =>
-        e.id === employeeId
-          ? { ...e, is_available: !e.is_available }
-          : e
+        e.id === employeeId ? { ...e, is_available: newValue } : e
       )
     );
 
     employeesService
-      .toggleAvailability(employeeId)
+      .toggleAvailability(employeeId, newValue)
       .catch((err) => console.error(err));
   };
 
   const handleToggleActive = (employeeId) => {
+    const current = employees.find((e) => e.id === employeeId);
+    const newActiveValue = current ? !current.is_active : false;
+
     setEmployees((prev) =>
       prev.map((e) =>
         e.id === employeeId
           ? {
               ...e,
-              is_active: !e.is_active,
-              is_available: false,
-              active_call_id: undefined,
+              is_active: newActiveValue,
+              // Al desactivar un agente lo ponemos no disponible también
+              is_available: newActiveValue ? e.is_available : false,
+              active_call_id: newActiveValue ? e.active_call_id : undefined,
             }
           : e
       )
     );
 
-    employeesService.toggleActive(employeeId).catch((err) => console.error(err));
+    employeesService
+      .toggleActive(employeeId, newActiveValue)
+      .catch((err) => console.error(err));
   };
 
   const handleNewEmployee = ({ name, rank }) => {
-    const newEmp = {
-      id: `emp-${Date.now()}`,
+    // Optimistic: mostramos el empleado de inmediato con un ID temporal.
+    // Cuando el back responde con el UUID real, lo reemplazamos.
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId,
       name,
       rank,
       is_available: true,
@@ -288,10 +300,21 @@ export default function App() {
       created_at: new Date().toISOString(),
     };
 
-    setEmployees((prev) => [...prev, newEmp]);
+    setEmployees((prev) => [...prev, optimistic]);
 
-    employeesService.createEmployee({ name, rank, is_available: true, is_active: true })
-      .catch((err) => console.error(err));
+    employeesService
+      .createEmployee({ name, rank })
+      .then((saved) => {
+        // Reemplazar el ID temporal por el UUID real del back
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === tempId ? { ...optimistic, ...saved } : e))
+        );
+      })
+      .catch((err) => {
+        console.error(err);
+        // Revertir si el back falló
+        setEmployees((prev) => prev.filter((e) => e.id !== tempId));
+      });
   };
 
   const handleEditEmployee = (employeeId, data) => {

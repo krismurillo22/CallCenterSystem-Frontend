@@ -1,40 +1,89 @@
-// Service de agentes/empleados. Mismo patrón que callsService.js: hoy
-// devuelve mock, mañana llama al backend real vía apiClient.
+// Service de agentes/empleados.
+//
+// ── Mapeo front ↔ back ───────────────────────────────────────────────────
+// El backend maneja: { id (UUID), name, rank, is_available, created_at }
+// El frontend además usa `is_active` (para mostrar si el agente está en
+// servicio o de baja). El back NO tiene ese campo todavía, así que:
+//   • Al leer      → todos los empleados que llegan del back se marcan
+//                    is_active: true (el back no guarda baja permanente).
+//   • toggleActive → usa PATCH /:id/availability con is_available: false
+//                    como proxy de "inactivo" hasta que el back agregue
+//                    el campo is_active propio.
+//
+// Cuando el back agregue is_active, solo ajusta toFrontend y toggleActive.
+// ────────────────────────────────────────────────────────────────────────
 
-import { employees as mockEmployees } from "../data/mockData";
-// import { apiClient } from "./apiClient";
+import { apiClient } from "./apiClient";
 
-const clone = (data) => JSON.parse(JSON.stringify(data));
+// ── Adaptador back → front ───────────────────────────────────────────────
+function toFrontend(emp) {
+  return {
+    id: emp.id,                         // UUID string
+    name: emp.name,
+    rank: emp.rank,
+    is_available: emp.is_available ?? true,
+    is_active: true,                    // el back no tiene este campo aún
+    created_at: emp.created_at,
+  };
+}
 
-/** @returns {Promise<import("../data/mockData").Employee[]>} */
+// ── Endpoints ────────────────────────────────────────────────────────────
+
+/**
+ * GET /employees — lista todos los agentes.
+ * @returns {Promise<object[]>}
+ */
 export async function getEmployees() {
-  // return apiClient.get("/employees");
-  return clone(mockEmployees);
-}
-
-/** @param {string} employeeId */
-export async function toggleAvailability(employeeId) {
-  // return apiClient.patch(`/employees/${employeeId}`, { toggle: "is_available" });
-  return Promise.resolve();
-}
-
-/** @param {string} employeeId */
-export async function toggleActive(employeeId) {
-  // return apiClient.patch(`/employees/${employeeId}`, { toggle: "is_active" });
-  return Promise.resolve();
-}
-
-/** @param {{ name: string, rank: import("../data/mockData").Rank }} data */
-export async function createEmployee(data) {
-  // return apiClient.post("/employees", data);
-  return Promise.resolve({ ...data, id: `emp-${Date.now()}`, is_available: true, is_active: true });
+  const data = await apiClient.get("/employees");
+  return data.map(toFrontend);
 }
 
 /**
+ * PATCH /employees/:id/availability — invierte is_available.
+ * App.jsx llama con (employeeId) y ya actualizó el estado local;
+ * aquí solo sincronizamos con el back.
  * @param {string} employeeId
- * @param {{ name: string, rank: import("../data/mockData").Rank }} data
+ * @param {boolean} newValue - el nuevo valor que queremos persistir
  */
-export async function updateEmployee(employeeId, data) {
-  // return apiClient.patch(`/employees/${employeeId}`, data);
-  return Promise.resolve();
+export async function toggleAvailability(employeeId, newValue) {
+  return apiClient.patch(`/employees/${employeeId}/availability`, {
+    is_available: newValue,
+  });
+}
+
+/**
+ * PATCH /employees/:id/availability — proxy de "activar/desactivar agente"
+ * hasta que el back tenga su propio campo is_active.
+ * @param {string} employeeId
+ * @param {boolean} newActiveValue - el nuevo valor de is_active que queremos
+ */
+export async function toggleActive(employeeId, newActiveValue) {
+  return apiClient.patch(`/employees/${employeeId}/availability`, {
+    is_available: newActiveValue,
+  });
+}
+
+/**
+ * POST /employees — crea un nuevo agente.
+ * @param {{ name: string, rank: number }} payload
+ * @returns {Promise<object>} empleado creado con UUID del back
+ */
+export async function createEmployee({ name, rank }) {
+  const data = await apiClient.post("/employees", {
+    name,
+    rank,
+    is_available: true,
+  });
+  return toFrontend(data);
+}
+
+/**
+ * PUT /employees/:id — actualiza nombre y/o rango.
+ * @param {string} employeeId
+ * @param {{ name?: string, rank?: number, is_available?: boolean }} updates
+ * @returns {Promise<object>}
+ */
+export async function updateEmployee(employeeId, updates) {
+  const data = await apiClient.put(`/employees/${employeeId}`, updates);
+  return toFrontend(data);
 }
