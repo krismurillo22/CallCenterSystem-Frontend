@@ -11,7 +11,14 @@
 import { apiClient } from "./apiClient";
 
 export async function getCalls() {
-  return apiClient.get("/calls");
+  const data = await apiClient.get("/calls");
+
+  return data.map((call) => ({
+    ...call,
+    employee_id: call.employeeId ?? call.employee_id ?? null,
+    call_queue_id: call.callQueueId ?? call.call_queue_id ?? null,
+    status: call.status ?? "queued",
+  }));
 }
 
 export async function createCall(data) {
