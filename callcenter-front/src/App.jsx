@@ -225,25 +225,21 @@ export default function App() {
   };
 
   const handleDispatch = (callId) => {
-    const call = calls.find((c) => c.id === callId);
-    if (!call) return;
-
-    const match = findAgent(employees, call.rank_required);
-    if (!match) return;
-
-    setEmployees((prev) => assignAgent(prev, match.id, callId));
-
-    setCalls(
-      calls.map((c) =>
-        c.id === callId
-          ? { ...c, status: "active", employee_id: match.id }
-          : c
+    queueService
+      .dispatchQueue()
+      .then(() =>
+        Promise.all([
+          callsService.getCalls(),
+          employeesService.getEmployees(),
+          queueService.getQueue(),
+        ])
       )
-    );
-
-    setQueue(queue.filter((q) => q.call_id !== callId));
-
-    callsService.dispatchCall(callId, match.id).catch((err) => console.error(err));
+      .then(([callsData, employeesData, queueData]) => {
+        setCalls(callsData);
+        setEmployees(employeesData);
+        setQueue(queueData);
+      })
+      .catch((err) => console.error(err));
   };
 
   // ── Handlers de agentes (descomentar cuando EmployeesPage exista) ──────

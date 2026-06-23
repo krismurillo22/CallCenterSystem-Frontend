@@ -1,12 +1,24 @@
-// Service de la cola de espera. Mismo patrón que los demás services.
+import { apiClient } from "./apiClient";
 
-import { callQueue as mockQueue } from "../data/mockData";
-// import { apiClient } from "./apiClient";
-
-const clone = (data) => JSON.parse(JSON.stringify(data));
-
-/** @returns {Promise<import("../data/mockData").QueueEntry[]>} */
 export async function getQueue() {
-  // return apiClient.get("/queue");
-  return clone(mockQueue);
+  return apiClient.get("/queue");
+}
+
+export async function dispatchQueue() {
+  return apiClient.post("/queue/dispatch", {});
+}
+
+export async function enqueueCall({ call_id, priority = 1 }) {
+  return apiClient.post("/queue/enqueue", {
+    call_id,
+    priority,
+  });
+}
+
+export async function removeFromQueue(id) {
+  return apiClient.delete(`/queue/${id}`);
+}
+
+export async function escalateQueueEntry(id) {
+  return apiClient.post(`/queue/escalate/${id}`, {});
 }
