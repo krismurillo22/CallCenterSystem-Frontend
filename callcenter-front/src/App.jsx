@@ -80,66 +80,89 @@ export default function App() {
   }, []);
 
   // ── Helpers de agentes (puros, sin side-effects) ───────────────────────
-  const findAgent = (emps, rankNeeded) =>
-    emps.find((e) => e.is_active && e.is_available && e.rank >= rankNeeded);
+ const findAgent = (emps, rankNeeded) =>
+  emps.find(
+    (e) =>
+      e.is_active &&
+      e.is_available &&
+      !e.active_call_id &&
+      e.rank >= rankNeeded
+  );
 
   const freeAgent = (emps, callId) =>
-    emps.map((e) =>
-      e.active_call_id === callId
-        ? { ...e, is_available: true, active_call_id: undefined }
-        : e
-    );
+  emps.map((e) =>
+    e.active_call_id === callId
+      ? { ...e, is_available: true, active_call_id: undefined }
+      : e
+  );
 
   const assignAgent = (emps, empId, callId) =>
-    emps.map((e) =>
-      e.id === empId
-        ? { ...e, is_available: false, active_call_id: callId }
-        : e
-    );
+  emps.map((e) =>
+    e.id === empId
+      ? { ...e, is_available: false, active_call_id: callId }
+      : e
+  );
 
   // ── Handlers de llamadas ────────────────────────────────────────────────
   // Cada handler actualiza el estado local de inmediato y, además, avisa al
   // service correspondiente (hoy no hace nada real porque todo es mock; el
   // día que haya backend, el .catch ya está listo para manejar errores).
 
-  const handleNewCall = ({ caller_name, caller_phone, rank_required }) => {
-    const id = nextCallId++;
-    const now = new Date().toISOString();
-    const match = findAgent(employees, rank_required);
+  const handleNewCall = async ({ caller_name, caller_phone, rank_required }) => {
+    try {
+      const now = new Date().toISOString();
+      const match = findAgent(employees, rank_required);
 
-    const newCall = {
-      id,
-      caller_name,
-      caller_phone,
-      rank_required,
-      status: match ? "active" : "queue",
-      started_at: now,
-      employee_id: match?.id,
-      escalations: 0,
-    };
+      // Crear primero la llamada en backend
+      const savedCall = await callsService.createCall({
+        caller_name,
+        caller_phone,
+        rank_required,
+      });
 
-    if (match) {
-      setEmployees((prev) => assignAgent(prev, match.id, id));
-    } else {
-      setQueue((prev) => [
-        ...prev,
-        {
-          id: `q-${id}`,
-          call_id: id,
-          priority: prev.length + 1,
-          joined_at: now,
-        },
-      ]);
+      // Preparar la versión final de la llamada según haya o no agente
+      let finalCall = savedCall;
+
+      if (match) {
+        //Persistir la asignación en backend
+        await callsService.dispatchCall(savedCall.id, match.id);
+
+        //Actualizar empleados localmente
+        setEmployees((prev) => assignAgent(prev, match.id, savedCall.id));
+
+        //reflejar la llamada como activa en frontend
+        finalCall = {
+          ...savedCall,
+          status: "active",
+          employee_id: match.id,
+          started_at: savedCall.started_at ?? now,
+        };
+      } else {
+        // Si no hay agente, queda en cola
+        setQueue((prev) => [
+          ...prev,
+          {
+            id: `q-${savedCall.id}`,
+            call_id: savedCall.id,
+            priority: prev.length + 1,
+            joined_at: now,
+          },
+        ]);
+
+        finalCall = {
+          ...savedCall,
+          status: "queued",
+        };
+      }
+
+      //guardar la llamada en estado local
+      setCalls((prev) => [finalCall, ...prev]);
+    } catch (err) {
+      console.error("Error creando llamada:", err);
     }
-
-    setCalls((prev) => [newCall, ...prev]);
-
-    callsService
-      .createCall({ caller_name, caller_phone, rank_required })
-      .catch((err) => console.error(err));
   };
 
-  const handleEscalate = (callId) => {
+  const handleEscalate = async (callId) => {
     const call = calls.find((c) => c.id === callId);
     if (!call || call.rank_required >= 3) return;
 
@@ -147,19 +170,21 @@ export default function App() {
     let newEmps = freeAgent(employees, callId);
     const match = findAgent(newEmps, newRank);
 
-    if (match) newEmps = assignAgent(newEmps, match.id, callId);
+    if (match) {
+      newEmps = assignAgent(newEmps, match.id, callId);
+    }
 
     setEmployees(newEmps);
 
-    setCalls(
-      calls.map((c) =>
+    setCalls((prev) =>
+      prev.map((c) =>
         c.id === callId
           ? {
               ...c,
               rank_required: newRank,
-              status: match ? "escalated" : "queue",
-              escalations: c.escalations + 1,
-              employee_id: match?.id,
+              status: match ? "escalated" : "queued",
+              escalations: (c.escalations ?? 0) + 1,
+              employee_id: match?.id ?? null,
             }
           : c
       )
@@ -181,7 +206,11 @@ export default function App() {
       );
     }
 
-    callsService.escalateCall(callId).catch((err) => console.error(err));
+    try {
+      await callsService.escalateCall(callId);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleFinish = (callId) => {
@@ -204,7 +233,7 @@ export default function App() {
     callsService.finishCall(callId).catch((err) => console.error(err));
   };
 
-  const handleAssign = (callId) => {
+  const handleAssign = async (callId) => {
     const call = calls.find((c) => c.id === callId);
     if (!call) return;
 
@@ -213,74 +242,86 @@ export default function App() {
 
     setEmployees((prev) => assignAgent(prev, match.id, callId));
 
-    setCalls(
-      calls.map((c) =>
+    setCalls((prev) =>
+      prev.map((c) =>
         c.id === callId
           ? { ...c, employee_id: match.id, status: "escalated" }
           : c
       )
     );
 
-    callsService.assignAgent(callId, match.id).catch((err) => console.error(err));
+    try {
+      await callsService.assignAgent(callId, match.id);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDispatch = (callId) => {
-    const call = calls.find((c) => c.id === callId);
-    if (!call) return;
+  const handleDispatch = async () => {
+    try {
+      await queueService.dispatchQueue();
 
-    const match = findAgent(employees, call.rank_required);
-    if (!match) return;
+      const [callsData, employeesData, queueData] = await Promise.all([
+        callsService.getCalls(),
+        employeesService.getEmployees(),
+        queueService.getQueue(),
+      ]);
 
-    setEmployees((prev) => assignAgent(prev, match.id, callId));
-
-    setCalls(
-      calls.map((c) =>
-        c.id === callId
-          ? { ...c, status: "active", employee_id: match.id }
-          : c
-      )
-    );
-
-    setQueue(queue.filter((q) => q.call_id !== callId));
-
-    callsService.dispatchCall(callId, match.id).catch((err) => console.error(err));
+      setCalls(callsData);
+      setEmployees(employeesData);
+      setQueue(queueData);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // ── Handlers de agentes (descomentar cuando EmployeesPage exista) ──────
   const handleToggleAvailability = (employeeId) => {
+    // Calculamos el nuevo valor antes de setState para pasárselo explícitamente
+    // al service (el back espera { is_available: boolean }, no un "toggle").
+    const current = employees.find((e) => e.id === employeeId);
+    const newValue = current ? !current.is_available : true;
+
     setEmployees((prev) =>
       prev.map((e) =>
-        e.id === employeeId
-          ? { ...e, is_available: !e.is_available }
-          : e
+        e.id === employeeId ? { ...e, is_available: newValue } : e
       )
     );
 
     employeesService
-      .toggleAvailability(employeeId)
+      .toggleAvailability(employeeId, newValue)
       .catch((err) => console.error(err));
   };
 
   const handleToggleActive = (employeeId) => {
+    const current = employees.find((e) => e.id === employeeId);
+    const newActiveValue = current ? !current.is_active : false;
+
     setEmployees((prev) =>
       prev.map((e) =>
         e.id === employeeId
           ? {
               ...e,
-              is_active: !e.is_active,
-              is_available: false,
-              active_call_id: undefined,
+              is_active: newActiveValue,
+              // Al desactivar un agente lo ponemos no disponible también
+              is_available: newActiveValue ? e.is_available : false,
+              active_call_id: newActiveValue ? e.active_call_id : undefined,
             }
           : e
       )
     );
 
-    employeesService.toggleActive(employeeId).catch((err) => console.error(err));
+    employeesService
+      .toggleActive(employeeId, newActiveValue)
+      .catch((err) => console.error(err));
   };
 
   const handleNewEmployee = ({ name, rank }) => {
-    const newEmp = {
-      id: `emp-${Date.now()}`,
+    // Optimistic: mostramos el empleado de inmediato con un ID temporal.
+    // Cuando el back responde con el UUID real, lo reemplazamos.
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId,
       name,
       rank,
       is_available: true,
@@ -288,10 +329,21 @@ export default function App() {
       created_at: new Date().toISOString(),
     };
 
-    setEmployees((prev) => [...prev, newEmp]);
+    setEmployees((prev) => [...prev, optimistic]);
 
-    employeesService.createEmployee({ name, rank, is_available: true, is_active: true })
-      .catch((err) => console.error(err));
+    employeesService
+      .createEmployee({ name, rank })
+      .then((saved) => {
+        // Reemplazar el ID temporal por el UUID real del back
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === tempId ? { ...optimistic, ...saved } : e))
+        );
+      })
+      .catch((err) => {
+        console.error(err);
+        // Revertir si el back falló
+        setEmployees((prev) => prev.filter((e) => e.id !== tempId));
+      });
   };
 
   const handleEditEmployee = (employeeId, data) => {
