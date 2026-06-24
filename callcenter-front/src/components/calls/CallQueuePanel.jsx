@@ -30,8 +30,10 @@ function WaitTimer({ joinedAt }) {
  */
 export function CallQueuePanel({ queue, calls, employees, onDispatch }) {
   const getCall = (id) => calls.find((c) => c.id === id);
-  const hasAgent = (rankNeeded) => employees.some((e) => e.is_available && e.rank >= rankNeeded);
-
+  const hasAgent = (rankNeeded) =>
+  employees.some(
+    (e) => e.is_available && !e.active_call_id && e.rank >= rankNeeded
+  );
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="px-5 py-4 flex items-center justify-between border-b border-border">

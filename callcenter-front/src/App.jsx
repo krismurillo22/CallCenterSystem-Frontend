@@ -66,18 +66,29 @@ export default function App() {
   // ── Carga inicial de datos vía services (hoy mock, después backend real) ──
   useEffect(() => {
     Promise.all([
-      callsService.getCalls(),
-      employeesService.getEmployees(),
-      queueService.getQueue(),
+        callsService.getCalls(),
+        employeesService.getEmployees(),
+        queueService.getQueue(),
     ])
       .then(([callsData, employeesData, queueData]) => {
+        const enrichedEmployees = employeesData.map((emp) => {
+          const activeCall = callsData.find(
+            (c) =>
+              c.employeeId === emp.id &&
+              (c.status === "active" || c.status === "escalated")
+          );
+          return activeCall
+            ? { ...emp, active_call_id: activeCall.id }
+            : emp;
+        });
+
         setCalls(callsData);
-        setEmployees(employeesData);
+        setEmployees(enrichedEmployees); 
         setQueue(queueData);
       })
       .catch((err) => console.error("Error cargando datos iniciales:", err))
       .finally(() => setLoading(false));
-  }, []);
+    }, []);
 
   // ── Helpers de agentes (puros, sin side-effects) ───────────────────────
  const findAgent = (emps, rankNeeded) =>
@@ -99,7 +110,7 @@ export default function App() {
   const assignAgent = (emps, empId, callId) =>
   emps.map((e) =>
     e.id === empId
-      ? { ...e, is_available: false, active_call_id: callId }
+      ? { ...e, is_available: false, active_call_id: callId }  
       : e
   );
 
@@ -109,58 +120,57 @@ export default function App() {
   // día que haya backend, el .catch ya está listo para manejar errores).
 
   const handleNewCall = async ({ caller_name, caller_phone, rank_required }) => {
-    try {
-      const now = new Date().toISOString();
-      const match = findAgent(employees, rank_required);
+  try {
+    const now = new Date().toISOString();
+    const match = findAgent(employees, rank_required);
 
-      // Crear primero la llamada en backend
-      const savedCall = await callsService.createCall({
-        caller_name,
-        caller_phone,
-        rank_required,
-      });
+    // crear la llamada en backend
+    const savedCall = await callsService.createCall({
+      caller_name,
+      caller_phone,
+      rank_required,
+    });
 
-      // Preparar la versión final de la llamada según haya o no agente
-      let finalCall = savedCall;
+    let finalCall = savedCall;
 
-      if (match) {
-        //Persistir la asignación en backend
-        await callsService.dispatchCall(savedCall.id, match.id);
+    // si hay agente, despachar automaticamente
+    if (match) {
+      const dispatchedCall = await callsService.dispatchCall(savedCall.id, match.id);
 
-        //Actualizar empleados localmente
-        setEmployees((prev) => assignAgent(prev, match.id, savedCall.id));
+      //marcar el agente como ocupado en frontend
+      setEmployees((prev) => assignAgent(prev, match.id, savedCall.id));
 
-        //reflejar la llamada como activa en frontend
-        finalCall = {
-          ...savedCall,
-          status: "active",
-          employee_id: match.id,
-          started_at: savedCall.started_at ?? now,
-        };
-      } else {
-        // Si no hay agente, queda en cola
-        setQueue((prev) => [
-          ...prev,
-          {
-            id: `q-${savedCall.id}`,
-            call_id: savedCall.id,
-            priority: prev.length + 1,
-            joined_at: now,
-          },
-        ]);
+      //usar la respuesta real del backend
+      finalCall = {
+        ...dispatchedCall,
+        employee_id: match.id,
+        status: "active",
+        started_at: dispatchedCall.started_at ?? now,
+      };
+    } else {
+      //Si no hay agente, queda en cola
+      setQueue((prev) => [
+        ...prev,
+        {
+          id: `q-${savedCall.id}`,
+          call_id: savedCall.id,
+          priority: prev.length + 1,
+          joined_at: now,
+        },
+      ]);
 
-        finalCall = {
-          ...savedCall,
-          status: "queued",
-        };
-      }
-
-      //guardar la llamada en estado local
-      setCalls((prev) => [finalCall, ...prev]);
-    } catch (err) {
-      console.error("Error creando llamada:", err);
+      finalCall = {
+        ...savedCall,
+        status: "queued",
+      };
     }
-  };
+
+    // Guardar en estado local
+    setCalls((prev) => [finalCall, ...prev]);
+  } catch (err) {
+    console.error("Error creando llamada:", err);
+  }
+};
 
   const handleEscalate = async (callId) => {
     const call = calls.find((c) => c.id === callId);
@@ -257,21 +267,31 @@ export default function App() {
     }
   };
 
-  const handleDispatch = async () => {
+  const handleDispatch = async (callId) => {
     try {
-      await queueService.dispatchQueue();
+      const call = calls.find((c) => c.id === callId);
+      if (!call) return;
 
-      const [callsData, employeesData, queueData] = await Promise.all([
-        callsService.getCalls(),
-        employeesService.getEmployees(),
-        queueService.getQueue(),
-      ]);
+      const match = findAgent(employees, call.rank_required);
+      if (!match) return;
 
-      setCalls(callsData);
-      setEmployees(employeesData);
-      setQueue(queueData);
+      const dispatched = await callsService.dispatchCall(callId, match.id);
+
+      // Actualizar empleado con active_call_id para que el botón se deshabilite
+      setEmployees((prev) => assignAgent(prev, match.id, callId));
+
+      setCalls((prev) =>
+        prev.map((c) =>
+          c.id === callId
+            ? { ...dispatched, status: "active" }
+            : c
+        )
+      );
+
+      // Sacar de la cola
+      setQueue((prev) => prev.filter((q) => q.call_id !== callId));
     } catch (err) {
-      console.error(err);
+      console.error("Error despachando llamada:", err);
     }
   };
 
